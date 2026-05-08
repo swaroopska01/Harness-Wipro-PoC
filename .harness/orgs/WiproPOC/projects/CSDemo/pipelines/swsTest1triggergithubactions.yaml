@@ -7,16 +7,15 @@ pipeline:
   tags: {}
   stages:
     - stage:
-        name: Trigger_GitHub_Workflow
-        identifier: trigger_github_workflow
-        description: Trigger GitHub Actions workflow via API
+        name: Trigger_And_Track_GitHub_Workflow
+        identifier: trigger_and_track
         type: Custom
         spec:
           execution:
             steps:
               - step:
-                  name: trigger_workflow_api
-                  identifier: trigger_workflow_api
+                  name: Trigger_And_Fetch_Run
+                  identifier: trigger_and_fetch_run
                   type: ShellScript
                   timeout: 10m
                   spec:
@@ -29,35 +28,54 @@ pipeline:
                       type: Inline
                       spec:
                         script: |
-                          echo "Triggering GitHub Actions workflow..."
+                          set -e
 
-                          API_URL="https://api.github.com/repos/swaroopska01/Harness-Wipro-PoC/actions/workflows/build.yml/dispatches"
+                          OWNER="swaroopska01"
+                          REPO="Harness-Wipro-PoC"
+                          WORKFLOW_FILE="build.yml"
 
-                          PAYLOAD='{
-                            "ref": "main",
-                            "inputs": {
-                              "environment": "dev",
-                              "imageTag": "123"
-                            }
-                          }'
+                          echo "🔹 Triggering GitHub Actions workflow..."
 
-                          RESPONSE=$(curl -s -w "\n%{http_code}" \
+                          TRIGGER_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
                             -X POST \
                             -H "Accept: application/vnd.github+json" \
                             -H "Authorization: Bearer $GITHUB_TOKEN" \
-                            "$API_URL" \
-                            -d "$PAYLOAD")
+                            https://api.github.com/repos/$OWNER/$REPO/actions/workflows/$WORKFLOW_FILE/dispatches \
+                            -d '{
+                              "ref": "main",
+                              "inputs": {
+                                "environment": "dev",
+                                "imageTag": "123"
+                              }
+                            }')
 
-                          BODY=$(echo "$RESPONSE" | head -n 1)
-                          STATUS=$(echo "$RESPONSE" | tail -n 1)
+                          echo "Trigger HTTP Status: $TRIGGER_STATUS"
 
-                          echo "HTTP Status: $STATUS"
-                          echo "Response Body: $BODY"
-
-                          if [ "$STATUS" -eq 204 ]; then
-                            echo "✅ GitHub workflow triggered successfully"
-                          else
-                            echo "❌ Failed to trigger GitHub workflow"
+                          if [ "$TRIGGER_STATUS" -ne 204 ]; then
+                            echo "❌ Failed to trigger workflow"
                             exit 1
                           fi
-        tags: {}
+
+                          echo "✅ Workflow triggered successfully"
+
+                          echo "⏳ Waiting for GitHub to register the run..."
+                          sleep 5
+
+                          echo "🔹 Fetching latest workflow run..."
+
+                          RESPONSE=$(curl -s \
+                            -H "Accept: application/vnd.github+json" \
+                            -H "Authorization: Bearer $GITHUB_TOKEN" \
+                            https://api.github.com/repos/$OWNER/$REPO/actions/runs?per_page=1)
+
+                          RUN_NUMBER=$(echo "$RESPONSE" | jq -r '.workflow_runs[0].run_number')
+                          WORKFLOW_NAME=$(echo "$RESPONSE" | jq -r '.workflow_runs[0].name')
+
+                          if [ "$RUN_NUMBER" = "null" ] || [ -z "$RUN_NUMBER" ]; then
+                            echo "❌ Failed to fetch run details"
+                            echo "$RESPONSE"
+                            exit 1
+                          fi
+
+                          echo "✅ GitHub Workflow Triggered:"
+                          echo "$WORKFLOW_NAME #$RUN_NUMBER"
