@@ -1,0 +1,63 @@
+pipeline:
+  name: sws-Test1-trigger-github-actions
+  identifier: swsTest1triggergithubactions
+  projectIdentifier: CSDemo
+  orgIdentifier: WiproPOC
+  description: Harness pipeline triggering the Github actions workflow
+  tags: {}
+  stages:
+    - stage:
+        name: Trigger_GitHub_Workflow
+        identifier: trigger_github_workflow
+        description: Trigger GitHub Actions workflow via API
+        type: Custom
+        spec:
+          execution:
+            steps:
+              - step:
+                  name: trigger_workflow_api
+                  identifier: trigger_workflow_api
+                  type: ShellScript
+                  timeout: 10m
+                  spec:
+                    shell: Bash
+                    environmentVariables:
+                      - name: GITHUB_TOKEN
+                        type: Secret
+                        value: github_token
+                    source:
+                      type: Inline
+                      spec:
+                        script: |
+                          echo "Triggering GitHub Actions workflow..."
+
+                          API_URL="https://api.github.com/repos/swaroopska01/Harness-Wipro-PoC/actions/workflows/build.yml/dispatches"
+
+                          PAYLOAD='{
+                            "ref": "main",
+                            "inputs": {
+                              "environment": "dev",
+                              "imageTag": "123"
+                            }
+                          }'
+
+                          RESPONSE=$(curl -s -w "\n%{http_code}" \
+                            -X POST \
+                            -H "Accept: application/vnd.github+json" \
+                            -H "Authorization: Bearer $GITHUB_TOKEN" \
+                            "$API_URL" \
+                            -d "$PAYLOAD")
+
+                          BODY=$(echo "$RESPONSE" | head -n 1)
+                          STATUS=$(echo "$RESPONSE" | tail -n 1)
+
+                          echo "HTTP Status: $STATUS"
+                          echo "Response Body: $BODY"
+
+                          if [ "$STATUS" -eq 204 ]; then
+                            echo "✅ GitHub workflow triggered successfully"
+                          else
+                            echo "❌ Failed to trigger GitHub workflow"
+                            exit 1
+                          fi
+        tags: {}
