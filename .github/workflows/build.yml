@@ -1,0 +1,49 @@
+name: Build Python + React
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment Environment"
+        required: true
+        default: "dev"
+      imageTag:
+        description: "Docker Image Tag"
+        required: true
+        default: "latest"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Backend - Python
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install Backend Dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+
+      # Frontend - React
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Frontend Dependencies
+        run: |
+          cd frontend
+          npm install
+          npm run build
+
+      - name: Print Inputs
+        run: |
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          echo "ImageTag: ${{ github.event.inputs.imageTag }}"
