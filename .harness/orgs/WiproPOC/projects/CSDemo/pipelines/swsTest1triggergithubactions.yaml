@@ -34,15 +34,23 @@ pipeline:
                           REPO="Harness-Wipro-PoC"
                           WORKFLOW_FILE="build.yml"
 
-                          echo "🔹 Installing jq..."
+                          echo "🔍 Detecting OS..."
 
-                          if ! command -v jq &> /dev/null
-                          then
-                            echo "jq not found, installing..."
-                            apt-get update -y && apt-get install -y jq
+                          if command -v apt-get >/dev/null 2>&1; then
+                          echo "🟢 Detected Ubuntu/Debian"
+                          apt-get update -y && apt-get install -y jq
+                          elif command -v yum >/dev/null 2>&1; then
+                          echo "🟢 Detected RHEL/CentOS"
+                          yum install -y jq
+                          elif command -v apk >/dev/null 2>&1; then
+                          echo "🟢 Detected Alpine"
+                          apk add --no-cache jq
                           else
-                            echo "jq already installed"
+                          echo "❌ Unsupported OS - cannot install jq"
+                          exit 1
                           fi
+
+                          echo "🔹 jq installation complete"
 
                           echo "🔹 Triggering GitHub Actions workflow..."
 
