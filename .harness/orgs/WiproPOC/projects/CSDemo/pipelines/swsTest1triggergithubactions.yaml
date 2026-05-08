@@ -7,15 +7,16 @@ pipeline:
   tags: {}
   stages:
     - stage:
-        name: Trigger_And_Track_GitHub_Workflow
-        identifier: trigger_and_track
+        name: Trigger_GitHub_Workflow
+        identifier: trigger_github_workflow
+        description: Trigger GitHub Actions workflow via API
         type: Custom
         spec:
           execution:
             steps:
               - step:
-                  name: Trigger_And_Fetch_Run
-                  identifier: trigger_and_fetch_run
+                  name: trigger_workflow_api
+                  identifier: trigger_workflow_api
                   type: ShellScript
                   timeout: 10m
                   spec:
@@ -23,77 +24,40 @@ pipeline:
                     environmentVariables:
                       - name: GITHUB_TOKEN
                         type: Secret
-                        value: sws-harness-github3
+                        value: github_token
                     source:
                       type: Inline
                       spec:
                         script: |
-                          set -e
+                          echo "Triggering GitHub Actions workflow..."
 
-                          OWNER="swaroopska01"
-                          REPO="Harness-Wipro-PoC"
-                          WORKFLOW_FILE="build.yml"
+                          API_URL="https://api.github.com/repos/swaroopska01/Harness-Wipro-PoC/actions/workflows/build.yml/dispatches"
 
-                          echo "🔍 Detecting OS..."
+                          PAYLOAD='{
+                            "ref": "main",
+                            "inputs": {
+                              "environment": "dev",
+                              "imageTag": "123"
+                            }
+                          }'
 
-                          if command -v apt-get >/dev/null 2>&1; then
-                          echo "🟢 Detected Ubuntu/Debian"
-                          apt-get update -y && apt-get install -y jq
-                          elif command -v yum >/dev/null 2>&1; then
-                          echo "🟢 Detected RHEL/CentOS"
-                          yum install -y jq
-                          elif command -v apk >/dev/null 2>&1; then
-                          echo "🟢 Detected Alpine"
-                          apk add --no-cache jq
-                          else
-                          echo "❌ Unsupported OS - cannot install jq"
-                          exit 1
-                          fi
-
-                          echo "🔹 jq installation complete"
-
-                          echo "🔹 Triggering GitHub Actions workflow..."
-
-                          TRIGGER_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+                          RESPONSE=$(curl -s -w "\n%{http_code}" \
                             -X POST \
                             -H "Accept: application/vnd.github+json" \
                             -H "Authorization: Bearer $GITHUB_TOKEN" \
-                            https://api.github.com/repos/$OWNER/$REPO/actions/workflows/$WORKFLOW_FILE/dispatches \
-                            -d '{
-                              "ref": "main",
-                              "inputs": {
-                                "environment": "dev",
-                                "imageTag": "123"
-                              }
-                            }')
+                            "$API_URL" \
+                            -d "$PAYLOAD")
 
-                          echo "Trigger HTTP Status: $TRIGGER_STATUS"
+                          BODY=$(echo "$RESPONSE" | head -n 1)
+                          STATUS=$(echo "$RESPONSE" | tail -n 1)
 
-                          if [ "$TRIGGER_STATUS" -ne 204 ]; then
-                            echo "❌ Failed to trigger workflow"
+                          echo "HTTP Status: $STATUS"
+                          echo "Response Body: $BODY"
+
+                          if [ "$STATUS" -eq 204 ]; then
+                            echo "✅ GitHub workflow triggered successfully"
+                          else
+                            echo "❌ Failed to trigger GitHub workflow"
                             exit 1
                           fi
-
-                          echo "✅ Workflow triggered successfully"
-
-                          echo "⏳ Waiting for GitHub to register the run..."
-                          sleep 5
-
-                          echo "🔹 Fetching latest workflow run..."
-
-                          RESPONSE=$(curl -s \
-                            -H "Accept: application/vnd.github+json" \
-                            -H "Authorization: Bearer $GITHUB_TOKEN" \
-                            https://api.github.com/repos/$OWNER/$REPO/actions/runs?per_page=1)
-
-                          RUN_NUMBER=$(echo "$RESPONSE" | jq -r '.workflow_runs[0].run_number')
-                          WORKFLOW_NAME=$(echo "$RESPONSE" | jq -r '.workflow_runs[0].name')
-
-                          if [ "$RUN_NUMBER" = "null" ] || [ -z "$RUN_NUMBER" ]; then
-                            echo "❌ Failed to fetch run details"
-                            echo "$RESPONSE"
-                            exit 1
-                          fi
-
-                          echo "✅ GitHub Workflow Triggered:"
-                          echo "$WORKFLOW_NAME #$RUN_NUMBER"
+        tags: {}
