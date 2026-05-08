@@ -24,7 +24,7 @@ pipeline:
                     environmentVariables:
                       - name: GITHUB_TOKEN
                         type: Secret
-                        value: github_token
+                        value: sws-harness-github3
                     source:
                       type: Inline
                       spec:
