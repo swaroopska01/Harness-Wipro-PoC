@@ -34,6 +34,16 @@ pipeline:
                           REPO="Harness-Wipro-PoC"
                           WORKFLOW_FILE="build.yml"
 
+                          echo "🔹 Installing jq..."
+
+                          if ! command -v jq &> /dev/null
+                          then
+                            echo "jq not found, installing..."
+                            apt-get update -y && apt-get install -y jq
+                          else
+                            echo "jq already installed"
+                          fi
+
                           echo "🔹 Triggering GitHub Actions workflow..."
 
                           TRIGGER_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
