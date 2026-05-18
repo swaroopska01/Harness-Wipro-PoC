@@ -1,4 +1,4 @@
-name: Build Python + React
+name: Build Python + React Docker App
 
 on:
   workflow_dispatch:
@@ -20,30 +20,56 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Backend - Python
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.9'
-
-      - name: Install Backend Dependencies
-        run: |
-          cd backend
-          pip install -r requirements.txt
-
-      # Frontend - React
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Install Frontend Dependencies
-        run: |
-          cd frontend
-          npm install
-          npm run build
-
       - name: Print Inputs
         run: |
           echo "Environment: ${{ github.event.inputs.environment }}"
           echo "ImageTag: ${{ github.event.inputs.imageTag }}"
+
+      - name: Validate Backend Files
+        run: |
+          test -f backend/app.py
+          test -f backend/requirements.txt
+
+      - name: Validate Frontend Files
+        run: |
+          test -f frontend/package.json
+          test -f frontend/index.html
+          test -f frontend/src/App.jsx
+          test -f frontend/src/main.jsx
+
+      - name: Build Docker Image
+        run: |
+          docker build \
+            -t harness-wipro-poc:${{ github.event.inputs.imageTag }} \
+            .
+
+      - name: Run Docker Container
+        run: |
+          docker run -d \
+            --name harness-wipro-poc \
+            -p 8080:8080 \
+            harness-wipro-poc:${{ github.event.inputs.imageTag }}
+
+      - name: Wait for App Startup
+        run: |
+          sleep 10
+
+      - name: Validate Backend API
+        run: |
+          curl -f http://localhost:8080/api/health
+          curl -f http://localhost:8080/api/message
+
+      - name: Validate Frontend
+        run: |
+          curl -f http://localhost:8080
+
+      - name: Show Running Containers
+        run: |
+          docker ps
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker logs harness-wipro-poc || true
+          docker stop harness-wipro-poc || true
+          docker rm harness-wipro-poc || true
