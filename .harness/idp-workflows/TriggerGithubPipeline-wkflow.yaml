@@ -1,0 +1,53 @@
+apiVersion: harness.io/v1
+kind: Workflow
+type: template-based workflow
+identifier: TriggerGithubPipelinewkflow
+name: TriggerGithubPipeline-wkflow
+owner: group:account/_account_all_users
+orgIdentifier: WiproPOC
+projectIdentifier: CSDemo
+spec:
+  lifecycle: production
+  output:
+    links:
+    - title: Harness Pipeline Execution
+      url: ${{ steps.trigger.output.PipelineUrl }}
+  parameters:
+  - title: Trigger GitHub Actions Pipeline
+    required:
+    - confirmation
+    - token
+    properties:
+      confirmation:
+        title: Execution Confirmation
+        type: string
+        description: Select TRIGGER to confirm pipeline execution.
+        enum:
+        - TRIGGER
+        default: TRIGGER
+      token:
+        title: Harness Token
+        type: string
+        description: Harness authentication token used by IDP to execute the Harness
+          pipeline.
+        ui:widget: password
+        ui:field: HarnessAuthToken
+  steps:
+  - id: trigger
+    name: Trigger Harness Pipeline for GitHub Actions
+    action: trigger:harness-custom-pipeline
+    input:
+      url: https://app.harness.io/ng/account/2KolbecvR0aAcgQ5uXBObA/module/idp/orgs/WiproPOC/projects/CSDemo/pipelines/swsTest1triggergithubactions/pipeline-studio/?storeType=REMOTE&repoName=Harness-Wipro-PoC&branch=main&accountIdentifier=2KolbecvR0aAcgQ5uXBObA&orgIdentifier=WiproPOC&projectIdentifier=CSDemo&pipelineIdentifier=swsTest1triggergithubactions
+      inputset: {}
+      apikey: ${{ parameters.token }}
+      hidePipelineURLLog: true
+      showOutputVariables: true
+metadata:
+  description: Workflow for triggering the Harness GitHub CI/CD pipeline that executes
+    the GitHub Actions build.yml workflow
+  tags:
+  - Github
+  - Harness
+  - IDP
+  - FullStack
+  - GitHubActions
